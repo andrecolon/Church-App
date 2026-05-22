@@ -14,7 +14,7 @@ import com.example.data.model.PotluckContribution
         EventReminder::class,
         PotluckContribution::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
