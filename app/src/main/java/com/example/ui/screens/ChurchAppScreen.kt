@@ -105,7 +105,7 @@ fun ChurchAppScreen(viewModel: ChurchViewModel, modifier: Modifier = Modifier) {
                 0 -> SabbathTabScreen(viewModel)
                 1 -> PotluckTabScreen(viewModel)
                 2 -> BibleTabScreen(viewModel)
-                3 -> LocationsMapTabScreen()
+                3 -> LocationsMapTabScreen(viewModel)
                 4 -> PrayerAndContactsTabScreen(viewModel)
             }
         }
@@ -374,6 +374,7 @@ fun SabbathTabScreen(viewModel: ChurchViewModel) {
 
     if (showLocationSelector) {
         LocationSelectorDialog(
+            viewModel = viewModel,
             currentSelected = location,
             onSelect = {
                 viewModel.selectLocation(it)
@@ -673,32 +674,60 @@ fun HolidayCard(holiday: BiblicalHoliday) {
 
 @Composable
 fun LocationSelectorDialog(
+    viewModel: ChurchViewModel,
     currentSelected: LocationCoordinates,
     onSelect: (LocationCoordinates) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val locations by viewModel.locationsList.collectAsStateWithLifecycle()
+
     var customCityName by remember { mutableStateOf("") }
+    var customCountry by remember { mutableStateOf("") }
     var customLat by remember { mutableStateOf("") }
     var customLng by remember { mutableStateOf("") }
     var customTz by remember { mutableStateOf("") }
 
+    var editingLocation by remember { mutableStateOf<LocationCoordinates?>(null) }
     var showError by remember { mutableStateOf(false) }
+    var deleteConfirmLocation by remember { mutableStateOf<LocationCoordinates?>(null) }
+
+    val startEditing: (LocationCoordinates) -> Unit = { loc ->
+        editingLocation = loc
+        customCityName = loc.cityName
+        customCountry = loc.country
+        customLat = loc.latitude.toString()
+        customLng = loc.longitude.toString()
+        customTz = loc.timezoneOffsetHours.toString()
+        showError = false
+    }
+
+    val clearFields = {
+        editingLocation = null
+        customCityName = ""
+        customCountry = ""
+        customLat = ""
+        customLng = ""
+        customTz = ""
+        showError = false
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                .padding(vertical = 16.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -707,91 +736,200 @@ fun LocationSelectorDialog(
                     Text(
                         text = "Global Sunset Meridian",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = FontFamily.Serif
                     )
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.testTag("close_location_dialog")
+                    ) {
                         Icon(Icons.Default.Close, "Dismiss")
                     }
                 }
 
                 Text(
-                    text = "Select a region coordinate marker below to dynamically recalculate Sabbath sunset ingress times:",
+                    text = "Select, add, modify, or delete coordinates to recalculate Sabbath sunset rest times dynamically:",
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    lineHeight = 16.sp
                 )
 
+                // Deletion Confirmation Banner
+                if (deleteConfirmLocation != null) {
+                    val target = deleteConfirmLocation!!
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Delete ${target.cityName} permanently?",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(onClick = { deleteConfirmLocation = null }) {
+                                    Text("Cancel", color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 11.sp)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                    onClick = {
+                                        viewModel.deleteLocation(target)
+                                        deleteConfirmLocation = null
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text("Confirm Delete", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Scrollable List of locations
                 val scrollState = rememberScrollState()
                 Column(
                     modifier = Modifier
-                        .heightIn(max = 240.dp)
+                        .heightIn(max = 220.dp)
                         .verticalScroll(scrollState),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    SunsetCalculator.locations.forEach { location ->
-                        val isSelected = location.cityName == currentSelected.cityName
+                    locations.forEach { location ->
+                        val isSelected = location.cityName == currentSelected.cityName && location.country == currentSelected.country
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                                    RoundedCornerShape(8.dp)
+                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .border(
+                                    BorderStroke(
+                                        1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                    ),
+                                    RoundedCornerShape(12.dp)
                                 )
                                 .clickable { onSelect(location) }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text(
-                                    text = "${location.cityName}, ${location.country}",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text = "${location.cityName}, ${location.country}",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Selected",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                    }
+                                }
                                 Text(
                                     text = "Lat: ${location.latitude}° | Lng: ${location.longitude}° | UTC Offset: ${location.timezoneOffsetHours}h",
                                     fontSize = 10.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                 )
                             }
-                            if (isSelected) {
-                                Icon(Icons.Default.Check, "Selected", tint = MaterialTheme.colorScheme.primary)
+                            
+                            // Edit modifier & delete control row
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = { startEditing(location) },
+                                    modifier = Modifier.size(28.dp).testTag("edit_location_${location.cityName}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit Location",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = { deleteConfirmLocation = location },
+                                    modifier = Modifier.size(28.dp).testTag("delete_location_${location.cityName}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete Location",
+                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                Divider()
+                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
 
-                Text(
-                    text = "Or Set Custom Coordinates:",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    TextField(
-                        value = customCityName,
-                        onValueChange = { customCityName = it },
-                        label = { Text("City Name", fontSize = 11.sp) },
-                        modifier = Modifier.fillMaxWidth().testTag("custom_city_name"),
-                        singleLine = true
+                // Heading for editor section
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (editingLocation != null) "Modify Location Coordinates:" else "Add Custom Location:",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.secondary
                     )
+                    if (editingLocation != null) {
+                        TextButton(
+                            onClick = { clearFields() },
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Text("Cancel Edit", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextField(
+                            value = customCityName,
+                            onValueChange = { customCityName = it },
+                            label = { Text("City Name", fontSize = 11.sp) },
+                            modifier = Modifier.weight(1f).testTag("custom_city_name"),
+                            singleLine = true
+                        )
+                        TextField(
+                            value = customCountry,
+                            onValueChange = { customCountry = it },
+                            label = { Text("Country", fontSize = 11.sp) },
+                            modifier = Modifier.weight(1f).testTag("custom_country"),
+                            singleLine = true
+                        )
+                    }
                     
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextField(
                             value = customLat,
                             onValueChange = { customLat = it },
-                            label = { Text("Latitude", fontSize = 11.sp) },
+                            label = { Text("Lat (-90..90)", fontSize = 11.sp) },
                             modifier = Modifier.weight(1f).testTag("custom_lat"),
                             singleLine = true
                         )
                         TextField(
                             value = customLng,
                             onValueChange = { customLng = it },
-                            label = { Text("Longitude", fontSize = 11.sp) },
+                            label = { Text("Lng (-180..180)", fontSize = 11.sp) },
                             modifier = Modifier.weight(1f).testTag("custom_lng"),
                             singleLine = true
                         )
@@ -800,7 +938,7 @@ fun LocationSelectorDialog(
                     TextField(
                         value = customTz,
                         onValueChange = { customTz = it },
-                        label = { Text("Timezone Offset (e.g. -5 for EST, 2 for Israel)", fontSize = 11.sp) },
+                        label = { Text("UTC Offset Hours (-12..14)", fontSize = 11.sp) },
                         modifier = Modifier.fillMaxWidth().testTag("custom_tz"),
                         singleLine = true
                     )
@@ -808,10 +946,11 @@ fun LocationSelectorDialog(
 
                 if (showError) {
                     Text(
-                        text = "Invalid format! Ensure correct Lat (-90 to 90), Lng (-180 to 180), and Tz offset (-12 to 14).",
+                        text = "Validation failed! Confirm non-empty name/country, and valid ranges: Lat (-90 to 90), Lng (-180 to 180), UTC offset (-12 to 14).",
                         color = MaterialTheme.colorScheme.error,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 14.sp
                     )
                 }
 
@@ -821,27 +960,42 @@ fun LocationSelectorDialog(
                         val lngVal = customLng.toDoubleOrNull()
                         val tzVal = customTz.toIntOrNull()
                         val city = customCityName.trim()
+                        val country = if (customCountry.trim().isEmpty()) "Custom" else customCountry.trim()
 
                         if (latVal != null && lngVal != null && tzVal != null && city.isNotEmpty() &&
                             latVal in -90.0..90.0 && lngVal in -180.0..180.0 && tzVal in -12..14
                         ) {
                             showError = false
-                            onSelect(
-                                LocationCoordinates(
-                                    cityName = city,
-                                    country = "Custom",
-                                    latitude = latVal,
-                                    longitude = lngVal,
-                                    timezoneOffsetHours = tzVal
-                                )
+                            val toSave = editingLocation?.copy(
+                                cityName = city,
+                                country = country,
+                                latitude = latVal,
+                                longitude = lngVal,
+                                timezoneOffsetHours = tzVal
+                            ) ?: LocationCoordinates(
+                                cityName = city,
+                                country = country,
+                                latitude = latVal,
+                                longitude = lngVal,
+                                timezoneOffsetHours = tzVal
                             )
+
+                            if (editingLocation != null) {
+                                viewModel.updateLocation(toSave)
+                            } else {
+                                viewModel.addLocation(city, country, latVal, lngVal, tzVal)
+                            }
+                            clearFields()
                         } else {
                             showError = true
                         }
                     },
                     modifier = Modifier.fillMaxWidth().testTag("apply_custom_coordinates")
                 ) {
-                    Text("Apply Custom Meridian", fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (editingLocation != null) "Save Modifications" else "Add New Coordinate Marker",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -1461,57 +1615,56 @@ fun ExpandableIntroCard(introText: String) {
 // SCREEN 4: INTERACTIVE LOCATIONS & VECTOR MAPS (NEW)
 // ==========================================
 
-data class ChurchCampus(
-    val id: String,
-    val name: String,
-    val address: String,
-    val coordinates: String,
-    val phone: String,
-    val studyTime: String,
-    val worshipTime: String,
-    val details: String
-)
-
 @Composable
-fun LocationsMapTabScreen() {
-    val campuses = listOf(
-        ChurchCampus(
-            id = "central",
-            name = "Grace Covenant - Central Sanctuary",
-            address = "500 Zion Way, City Center",
-            coordinates = "31.7719° N, 35.2170° E",
-            phone = "(555) 123-4567",
-            studyTime = "Sabbath Study: 10:00 AM",
-            worshipTime = "Sabbath Worship: 11:30 AM",
-            details = "Our main worship home featuring historical scroll archives and a spacious fellowship courtyard."
-        ),
-        ChurchCampus(
-            id = "north",
-            name = "Grace Covenant - North Ridge Chapel",
-            address = "12 Mount Hermon Road, Highland",
-            coordinates = "32.9642° N, 35.6983° E",
-            phone = "(555) 987-6543",
-            studyTime = "Friday Sunset Ingress: 6:30 PM",
-            worshipTime = "Sabbath Morning Blessing: 9:00 AM",
-            details = "A peaceful getaway location embedded in nature gardens, ideal for quiet retreats and sunset prayer."
-        ),
-        ChurchCampus(
-            id = "east",
-            name = "Grace Covenant - East Fellowship Cabin",
-            address = "88 Jordan Crossing, Valley Green",
-            coordinates = "31.9522° N, 35.9284° E",
-            phone = "(555) 555-7777",
-            studyTime = "Sabbath Outdoor Fellowship: 4:30 PM",
-            worshipTime = "Sunset Fellowship Service: 6:00 PM",
-            details = "Our rustic valley location hosting riverside baptism studies and communal outdoor potlucks."
-        )
-    )
+fun LocationsMapTabScreen(viewModel: ChurchViewModel) {
+    val campuses by viewModel.campusesList.collectAsStateWithLifecycle()
 
     var selectedCampusIndex by remember { mutableStateOf(0) }
-    val activeCampus = campuses[selectedCampusIndex]
+    val safeSelectedCampusIndex = if (campuses.isEmpty()) -1 else selectedCampusIndex.coerceIn(0, campuses.size - 1)
+    val activeCampus = if (safeSelectedCampusIndex != -1) campuses[safeSelectedCampusIndex] else null
 
     var highlightedFeatureName by remember { mutableStateOf("Main Sanctuary Entry") }
     var highlightedFeatureDesc by remember { mutableStateOf("The main foyer and access point. Tap the campus blueprint to inspect sectors.") }
+
+    var showEditor by remember { mutableStateOf(false) }
+    var editTargetCampus by remember { mutableStateOf<ChurchCampus?>(null) } // null means add, not-null means edit
+
+    var campusName by remember { mutableStateOf("") }
+    var campusAddress by remember { mutableStateOf("") }
+    var campusCoordinates by remember { mutableStateOf("") }
+    var campusPhone by remember { mutableStateOf("") }
+    var campusStudyTime by remember { mutableStateOf("") }
+    var campusWorshipTime by remember { mutableStateOf("") }
+    var campusDetails by remember { mutableStateOf("") }
+    var formError by remember { mutableStateOf(false) }
+
+    var campusToDelete by remember { mutableStateOf<ChurchCampus?>(null) }
+
+    val openAddForm = {
+        campusName = ""
+        campusAddress = ""
+        campusCoordinates = ""
+        campusPhone = ""
+        campusStudyTime = ""
+        campusWorshipTime = ""
+        campusDetails = ""
+        editTargetCampus = null
+        formError = false
+        showEditor = true
+    }
+
+    val openEditForm: (ChurchCampus) -> Unit = { campus ->
+        campusName = campus.name
+        campusAddress = campus.address
+        campusCoordinates = campus.coordinates
+        campusPhone = campus.phone
+        campusStudyTime = campus.studyTime
+        campusWorshipTime = campus.worshipTime
+        campusDetails = campus.details
+        editTargetCampus = campus
+        formError = false
+        showEditor = true
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -1521,269 +1674,512 @@ fun LocationsMapTabScreen() {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Column {
-                Text(
-                    text = "Church Locations & Map",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontFamily = FontFamily.Serif
-                )
-                Text(
-                    text = "Detailed directions and blueprints of Grace Covenant worship campuses:",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Church Locations & Map",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = FontFamily.Serif
+                    )
+                    Text(
+                        text = "Detailed directions and blueprints of Grace Covenant worship campuses:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    )
+                }
+                
+                Button(
+                    onClick = openAddForm,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.testTag("add_campus_button")
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Campus", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Add", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
         // Campus scrollable chips
-        item {
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                itemsIndexed(campuses) { index, c ->
-                    val isSelected = index == selectedCampusIndex
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = {
-                            selectedCampusIndex = index
-                            // Reset blueprint focus
-                            highlightedFeatureName = "Main Sanctuary Entry"
-                            highlightedFeatureDesc = "The main foyer and access point. Tap the campus blueprint to inspect sectors."
-                        },
-                        label = { Text(c.name.split(" - ").last(), fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+        if (campuses.isNotEmpty()) {
+            item {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    itemsIndexed(campuses) { index, c ->
+                        val isSelected = index == safeSelectedCampusIndex
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                selectedCampusIndex = index
+                                // Reset blueprint focus
+                                highlightedFeatureName = "Main Sanctuary Entry"
+                                highlightedFeatureDesc = "The main foyer and access point. Tap the campus blueprint to inspect sectors."
+                            },
+                            label = { Text(c.name.split(" - ").last(), fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            modifier = Modifier.testTag("campus_chip_${c.id}")
                         )
-                    )
+                    }
+                }
+            }
+        } else {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(modifier = Modifier.padding(24.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "No worship campuses registered. Tap 'Add' to declare one!",
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
 
         // Active campus card
-        item {
+        if (activeCampus != null) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                    elevation = CardDefaults.cardElevation(2.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("active_campus_card")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = activeCampus.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontFamily = FontFamily.Serif,
+                                modifier = Modifier.weight(1f)
+                            )
+                            
+                            // Edit & Delete operations for active campus
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                IconButton(
+                                    onClick = { openEditForm(activeCampus) },
+                                    modifier = Modifier.size(32.dp).testTag("edit_campus_${activeCampus.id}")
+                                ) {
+                                    Icon(Icons.Default.Edit, "Edit Campus", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                }
+                                IconButton(
+                                    onClick = { campusToDelete = activeCampus },
+                                    modifier = Modifier.size(32.dp).testTag("delete_campus_${activeCampus.id}")
+                                ) {
+                                    Icon(Icons.Default.Delete, "Delete Campus", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.LocationOn, "Address", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = "${activeCampus.address} | Coordinates: ${activeCampus.coordinates}",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.Phone, "Phone", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                            Text(text = activeCampus.phone, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.DateRange, "Schedule", tint = SabbathGold, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = "${activeCampus.studyTime} • ${activeCampus.worshipTime}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        Divider()
+
+                        Text(
+                            text = activeCampus.details,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+
+            // Vector Blueprint floor map drawer
+            item {
+                Text(
+                    text = "Interactive Campus Blueprint Layout Map:",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1A25)), // deep map background
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        val isCentral = activeCampus.name.lowercase().contains("central")
+                        val isNorth = activeCampus.name.lowercase().contains("north")
+
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val w = size.width
+                            val h = size.height
+
+                            // Draw architectural grid lines
+                            val gridSpacing = 25.dp.toPx()
+                            for (x in 0..w.toInt() step gridSpacing.toInt()) {
+                                drawLine(
+                                    color = Color(0xFF1E3A52),
+                                    start = Offset(x.toFloat(), 0f),
+                                    end = Offset(x.toFloat(), h),
+                                    strokeWidth = 1f
+                                )
+                            }
+                            for (y in 0..h.toInt() step gridSpacing.toInt()) {
+                                drawLine(
+                                    color = Color(0xFF1E3A52),
+                                    start = Offset(0f, y.toFloat()),
+                                    end = Offset(w, y.toFloat()),
+                                    strokeWidth = 1f
+                                )
+                            }
+
+                            // Outer border walls
+                            drawRoundRect(
+                                color = Color(0xFF42A5F5),
+                                topLeft = Offset(40f, 40f),
+                                size = Size(w - 80f, h - 80f),
+                                style = Stroke(width = 4f),
+                                cornerRadius = CornerRadius(12f)
+                            )
+
+                            // Divider Walls mapping different sectors based on selected campus
+                            if (isCentral) {
+                                // Sanctuary Pew blocks
+                                drawRect(Color(0xFF2E7D32).copy(alpha = 0.3f), Offset(60f, 60f), Size(w/2 - 80f, h - 120f))
+                                // Pulpit / Ark scroll Room
+                                drawRect(Color(0xFFE65100).copy(alpha = 0.4f), Offset(w/2 + 20f, 60f), Size(w/2 - 80f, h/2 - 40f))
+                                // Fellowship kitchen tables
+                                drawRect(Color(0xFF00bcd4).copy(alpha = 0.3f), Offset(w/2 + 20f, h/2 + 40f), Size(w/2 - 80f, h/2 - 100f))
+                            } else if (isNorth) {
+                                // Nature Chapel outdoor benches
+                                drawRect(Color(0xFF2E7D32).copy(alpha = 0.4f), Offset(60f, 60f), Size(w - 120f, h/3))
+                                // Indoor altar prayer closets
+                                drawRect(Color(0xFFE65100).copy(alpha = 0.3f), Offset(60f, h/2), Size(w/2 - 80f, h/2 - 40f))
+                                // Garden scroll cabins
+                                drawRect(Color(0xFF673ab7).copy(alpha = 0.3f), Offset(w/2 + 20f, h/2), Size(w/2 - 80f, h/2 - 40f))
+                            } else {
+                                // Outdoor baptistry pool focus
+                                drawCircle(Color(0xFF0288d1).copy(alpha = 0.5f), center = Offset(w/3, h/2), radius = 50f)
+                                // Potluck courtyard benches
+                                drawRect(Color(0xFF00bcd4).copy(alpha = 0.3f), Offset(w/2 + 30f, 60f), Size(w/2 - 90f, h - 120f))
+                            }
+                        }
+
+                        // Interactive touch overlay labels
+                        if (isCentral) {
+                            BlueprintTextButton(
+                                label = "Worship Pews",
+                                modifier = Modifier.align(Alignment.CenterStart).padding(start = 24.dp),
+                                onClick = {
+                                    highlightedFeatureName = "Sanctuary Seating (Pews)"
+                                    highlightedFeatureDesc = "Pew layouts configured with generous spacing. This seats 150 participants for Sabbath readings."
+                                }
+                            )
+                            BlueprintTextButton(
+                                label = "Scroll Chest",
+                                modifier = Modifier.align(Alignment.TopEnd).padding(end = 40.dp, top = 24.dp),
+                                onClick = {
+                                    highlightedFeatureName = "Scroll Ark & Library Chamber"
+                                    highlightedFeatureDesc = "Secure climate chamber housing biblical papyri, Apocrypha, and detailed Pseudepigrapha leather scroll replicas."
+                                }
+                            )
+                            BlueprintTextButton(
+                                label = "Potluck Court",
+                                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 40.dp, bottom = 24.dp),
+                                onClick = {
+                                    highlightedFeatureName = "Courtyard Fellowship Table"
+                                    highlightedFeatureDesc = "Outdoor covered space where sharing dishes and refreshing hibiscus teas are served after Sabbath services."
+                                }
+                            )
+                        } else if (isNorth) {
+                            BlueprintTextButton(
+                                label = "Nature Benches",
+                                modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp),
+                                onClick = {
+                                    highlightedFeatureName = "Highland Nature Benches"
+                                    highlightedFeatureDesc = "Surrounded by olive branches. Direct view of Israel sunrise / sunsets during our prayer groups."
+                                }
+                            )
+                            BlueprintTextButton(
+                                label = "Altar Chapel",
+                                modifier = Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 24.dp),
+                                onClick = {
+                                    highlightedFeatureName = "Indoor Altar"
+                                    highlightedFeatureDesc = "Quiet sanctuary chapel containing a stone pillar memorial and private devotion kneeling cushions."
+                                }
+                            )
+                        } else {
+                            BlueprintTextButton(
+                                label = "Baptistry Pool",
+                                modifier = Modifier.align(Alignment.CenterStart).padding(start = 28.dp),
+                                onClick = {
+                                    highlightedFeatureName = "Jordan River Baptistry"
+                                    highlightedFeatureDesc = "Fresh-water outdoor immersion pool supplied by local thermal springs, dedicated to covenant initiations."
+                                }
+                            )
+                            BlueprintTextButton(
+                                label = "Gathering Green",
+                                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 28.dp),
+                                onClick = {
+                                    highlightedFeatureName = "Valley Assembly Pavilion"
+                                    highlightedFeatureDesc = "Covered wooden cabin pavilion hosting rustic river-side biblical discussions and local farmer bread fellowships."
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Selected Blueprint Sector card details
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.Info, "Sector Details", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = highlightedFeatureName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Text(
+                            text = highlightedFeatureDesc,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // Modal Editor Dialog for adding/modifying campuses
+    if (showEditor) {
+        Dialog(onDismissRequest = { showEditor = false }) {
             Card(
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-                elevation = CardDefaults.cardElevation(2.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = activeCampus.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontFamily = FontFamily.Serif
-                    )
-                    
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Default.LocationOn, "Address", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
-                        Text(
-                            text = "${activeCampus.address} | Coordinates: ${activeCampus.coordinates}",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Default.Phone, "Phone", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
-                        Text(text = activeCampus.phone, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Default.DateRange, "Schedule", tint = SabbathGold, modifier = Modifier.size(16.dp))
-                        Text(
-                            text = "${activeCampus.studyTime} • ${activeCampus.worshipTime}",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    Divider()
-
-                    Text(
-                        text = activeCampus.details,
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        }
-
-        // Vector Blueprint floor map drawer
-        item {
-            Text(
-                text = "Interactive Campus Blueprint Layout Map:",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1A25)), // deep map background
-                border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                elevation = CardDefaults.cardElevation(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val w = size.width
-                        val h = size.height
-
-                        // Draw architectural grid lines
-                        val gridSpacing = 25.dp.toPx()
-                        for (x in 0..w.toInt() step gridSpacing.toInt()) {
-                            drawLine(
-                                color = Color(0xFF1E3A52),
-                                start = Offset(x.toFloat(), 0f),
-                                end = Offset(x.toFloat(), h),
-                                strokeWidth = 1f
-                            )
-                        }
-                        for (y in 0..h.toInt() step gridSpacing.toInt()) {
-                            drawLine(
-                                color = Color(0xFF1E3A52),
-                                start = Offset(0f, y.toFloat()),
-                                end = Offset(w, y.toFloat()),
-                                strokeWidth = 1f
-                            )
-                        }
-
-                        // Outer border walls
-                        drawRoundRect(
-                            color = Color(0xFF42A5F5),
-                            topLeft = Offset(40f, 40f),
-                            size = Size(w - 80f, h - 80f),
-                            style = Stroke(width = 4f),
-                            cornerRadius = CornerRadius(12f)
-                        )
-
-                        // Divider Walls mapping different sectors based on selected campus
-                        if (activeCampus.id == "central") {
-                            // Sanctuary Pew blocks
-                            drawRect(Color(0xFF2E7D32).copy(alpha = 0.3f), Offset(60f, 60f), Size(w/2 - 80f, h - 120f))
-                            // Pulpit / Ark scroll Room
-                            drawRect(Color(0xFFE65100).copy(alpha = 0.4f), Offset(w/2 + 20f, 60f), Size(w/2 - 80f, h/2 - 40f))
-                            // Fellowship kitchen tables
-                            drawRect(Color(0xFF00bcd4).copy(alpha = 0.3f), Offset(w/2 + 20f, h/2 + 40f), Size(w/2 - 80f, h/2 - 100f))
-                        } else if (activeCampus.id == "north") {
-                            // Nature Chapel outdoor benches
-                            drawRect(Color(0xFF2E7D32).copy(alpha = 0.4f), Offset(60f, 60f), Size(w - 120f, h/3))
-                            // Indoor altar prayer closets
-                            drawRect(Color(0xFFE65100).copy(alpha = 0.3f), Offset(60f, h/2), Size(w/2 - 80f, h/2 - 40f))
-                            // Garden scroll cabins
-                            drawRect(Color(0xFF673ab7).copy(alpha = 0.3f), Offset(w/2 + 20f, h/2), Size(w/2 - 80f, h/2 - 40f))
-                        } else {
-                            // Outdoor baptistry pool focus
-                            drawCircle(Color(0xFF0288d1).copy(alpha = 0.5f), center = Offset(w/3, h/2), radius = 50f)
-                            // Potluck courtyard benches
-                            drawRect(Color(0xFF00bcd4).copy(alpha = 0.3f), Offset(w/2 + 30f, 60f), Size(w/2 - 90f, h - 120f))
-                        }
-                    }
-
-                    // Interactive touch overlay labels
-                    if (activeCampus.id == "central") {
-                        BlueprintTextButton(
-                            label = "Worship Pews",
-                            modifier = Modifier.align(Alignment.CenterStart).padding(start = 24.dp),
-                            onClick = {
-                                highlightedFeatureName = "Sanctuary Seating (Pews)"
-                                highlightedFeatureDesc = "Pew layouts configured with generous spacing. This seats 150 participants for Sabbath readings."
-                            }
-                        )
-                        BlueprintTextButton(
-                            label = "Scroll Chest",
-                            modifier = Modifier.align(Alignment.TopEnd).padding(end = 40.dp, top = 24.dp),
-                            onClick = {
-                                highlightedFeatureName = "Scroll Ark & Library Chamber"
-                                highlightedFeatureDesc = "Secure climate chamber housing biblical papyri, Apocrypha, and detailed Pseudepigrapha leather scroll replicas."
-                            }
-                        )
-                        BlueprintTextButton(
-                            label = "Potluck Court",
-                            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 40.dp, bottom = 24.dp),
-                            onClick = {
-                                highlightedFeatureName = "Courtyard Fellowship Table"
-                                highlightedFeatureDesc = "Outdoor covered space where sharing dishes and refreshing hibiscus teas are served after Sabbath services."
-                            }
-                        )
-                    } else if (activeCampus.id == "north") {
-                        BlueprintTextButton(
-                            label = "Nature Benches",
-                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp),
-                            onClick = {
-                                highlightedFeatureName = "Highland Nature Benches"
-                                highlightedFeatureDesc = "Surrounded by olive branches. Direct view of Israel sunrise / sunsets during our prayer groups."
-                            }
-                        )
-                        BlueprintTextButton(
-                            label = "Altar Chapel",
-                            modifier = Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 24.dp),
-                            onClick = {
-                                highlightedFeatureName = "Indoor Altar"
-                                highlightedFeatureDesc = "Quiet sanctuary chapel containing a stone pillar memorial and private devotion kneeling cushions."
-                            }
-                        )
-                    } else {
-                        BlueprintTextButton(
-                            label = "Baptistry Pool",
-                            modifier = Modifier.align(Alignment.CenterStart).padding(start = 28.dp),
-                            onClick = {
-                                highlightedFeatureName = "Jordan River Baptistry"
-                                highlightedFeatureDesc = "Fresh-water outdoor immersion pool supplied by local thermal springs, dedicated to covenant initiations."
-                            }
-                        )
-                        BlueprintTextButton(
-                            label = "Gathering Green",
-                            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 28.dp),
-                            onClick = {
-                                highlightedFeatureName = "Valley Assembly Pavilion"
-                                highlightedFeatureDesc = "Covered wooden cabin pavilion hosting rustic river-side biblical discussions and local farmer bread fellowships."
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        // Selected Blueprint Sector card details
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                    .padding(vertical = 16.dp)
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                        .padding(20.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Default.Info, "Sector Details", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    val isEdit = editTargetCampus != null
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = highlightedFeatureName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            text = if (isEdit) "Edit Campus Record" else "Add Campus Record",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontFamily = FontFamily.Serif
+                        )
+                        IconButton(onClick = { showEditor = false }) {
+                            Icon(Icons.Default.Close, "Close")
+                        }
+                    }
+
+                    TextField(
+                        value = campusName,
+                        onValueChange = { campusName = it },
+                        label = { Text("Campus Name", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth().testTag("campus_name_input")
+                    )
+
+                    TextField(
+                        value = campusAddress,
+                        onValueChange = { campusAddress = it },
+                        label = { Text("Address", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth().testTag("campus_address_input")
+                    )
+
+                    TextField(
+                        value = campusCoordinates,
+                        onValueChange = { campusCoordinates = it },
+                        label = { Text("Coordinates (e.g. 31.7719° N, 35.2170° E)", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth().testTag("campus_coordinates_input")
+                    )
+
+                    TextField(
+                        value = campusPhone,
+                        onValueChange = { campusPhone = it },
+                        label = { Text("Phone Number", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth().testTag("campus_phone_input")
+                    )
+
+                    TextField(
+                        value = campusStudyTime,
+                        onValueChange = { campusStudyTime = it },
+                        label = { Text("Sabbath Study Time (e.g. 10:00 AM)", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth().testTag("campus_study_input")
+                    )
+
+                    TextField(
+                        value = campusWorshipTime,
+                        onValueChange = { campusWorshipTime = it },
+                        label = { Text("Worship Service Time (e.g. 11:30 AM)", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth().testTag("campus_worship_input")
+                    )
+
+                    TextField(
+                        value = campusDetails,
+                        onValueChange = { campusDetails = it },
+                        label = { Text("Campus/Assembly Details", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth().testTag("campus_details_input"),
+                        minLines = 3
+                    )
+
+                    if (formError) {
+                        Text(
+                            text = "Validation failed! Campus Name and Address cannot be blank.",
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                    Text(
-                        text = highlightedFeatureDesc,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { showEditor = false }) {
+                            Text("Cancel")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                if (campusName.trim().isNotBlank() && campusAddress.trim().isNotBlank()) {
+                                    val finalPhone = if (campusPhone.trim().isBlank()) "(No Phone Listed)" else campusPhone.trim()
+                                    val finalCoords = if (campusCoordinates.trim().isBlank()) "0.0° N, 0.0° E" else campusCoordinates.trim()
+                                    val finalStudy = if (campusStudyTime.trim().isBlank()) "Sabbath Study: 10:00 AM" else campusStudyTime.trim()
+                                    val finalWorship = if (campusWorshipTime.trim().isBlank()) "Sabbath Worship: 11:30 AM" else campusWorshipTime.trim()
+                                    val finalDetails = if (campusDetails.trim().isBlank()) "Grace Covenant Assembly of Holy Covenants" else campusDetails.trim()
+                                    
+                                    val target = editTargetCampus
+                                    if (target != null) {
+                                        viewModel.updateCampus(
+                                            target.copy(
+                                                name = campusName.trim(),
+                                                address = campusAddress.trim(),
+                                                coordinates = finalCoords,
+                                                phone = finalPhone,
+                                                studyTime = finalStudy,
+                                                worshipTime = finalWorship,
+                                                details = finalDetails
+                                            )
+                                        )
+                                    } else {
+                                        viewModel.addCampus(
+                                            name = campusName.trim(),
+                                            address = campusAddress.trim(),
+                                            coordinates = finalCoords,
+                                            phone = finalPhone,
+                                            studyTime = finalStudy,
+                                            worshipTime = finalWorship,
+                                            details = finalDetails
+                                        )
+                                    }
+                                    showEditor = false
+                                } else {
+                                    formError = true
+                                }
+                            },
+                            modifier = Modifier.testTag("submit_campus_form")
+                        ) {
+                            Text(if (isEdit) "Save Edits" else "Create Campus")
+                        }
+                    }
                 }
             }
         }
+    }
+
+    // AlertDialog for confirming campus deletions
+    if (campusToDelete != null) {
+        val target = campusToDelete!!
+        AlertDialog(
+            onDismissRequest = { campusToDelete = null },
+            title = { Text("Delete Campus Record?", fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold) },
+            text = { Text("Are you absolutely sure you want to delete ${target.name}? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteCampus(target)
+                        campusToDelete = null
+                        selectedCampusIndex = 0
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.testTag("confirm_delete_campus_button")
+                ) {
+                    Text("Delete", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { campusToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

@@ -3,23 +3,57 @@ package com.example.data.repository
 import com.example.data.local.PrayerDao
 import com.example.data.local.EventDao
 import com.example.data.local.PotluckDao
+import com.example.data.local.LocationDao
+import com.example.data.local.CampusDao
 import com.example.data.model.*
+import com.example.utils.LocationCoordinates
+import com.example.utils.SunsetCalculator
 import kotlinx.coroutines.flow.Flow
 
 class ChurchRepository(
     private val prayerDao: PrayerDao,
     private val eventDao: EventDao,
-    private val potluckDao: PotluckDao
+    private val potluckDao: PotluckDao,
+    private val locationDao: LocationDao,
+    private val campusDao: CampusDao
 ) {
     // Database Flow APIs
     val allPrayers: Flow<List<PrayerRequest>> = prayerDao.getAllPrayers()
     val allReminders: Flow<List<EventReminder>> = eventDao.getAllReminders()
     val allPotluckContributions: Flow<List<PotluckContribution>> = potluckDao.getAllContributions()
+    val allLocations: Flow<List<LocationCoordinates>> = locationDao.getAllLocations()
+    val allCampuses: Flow<List<ChurchCampus>> = campusDao.getAllCampuses()
 
     // Static content catalogs
     val events: List<CalendarEvent> = SeedData.events
     val holidays: List<BiblicalHoliday> = SeedData.holidays
     val bibleBooks: List<BibleBook> = SeedData.bibleBooks
+
+    // Location operations
+    suspend fun insertLocation(location: LocationCoordinates) {
+        locationDao.insertLocation(location)
+    }
+
+    suspend fun updateLocation(location: LocationCoordinates) {
+        locationDao.updateLocation(location)
+    }
+
+    suspend fun deleteLocation(location: LocationCoordinates) {
+        locationDao.deleteLocation(location)
+    }
+
+    // Campus operations
+    suspend fun insertCampus(campus: ChurchCampus) {
+        campusDao.insertCampus(campus)
+    }
+
+    suspend fun updateCampus(campus: ChurchCampus) {
+        campusDao.updateCampus(campus)
+    }
+
+    suspend fun deleteCampus(campus: ChurchCampus) {
+        campusDao.deleteCampus(campus)
+    }
 
     // Prayer requests operations
     suspend fun insertPrayer(prayer: PrayerRequest) {
@@ -151,6 +185,55 @@ class ChurchRepository(
             )
             for (item in defaultPotluck) {
                 potluckDao.insertContribution(item)
+            }
+        }
+        if (locationDao.getCount() == 0) {
+            val defaultLocs = listOf(
+                LocationCoordinates("Jerusalem", "Israel", 31.7683, 35.2137, 3),
+                LocationCoordinates("New York", "USA", 40.7128, -74.0060, -4),
+                LocationCoordinates("Los Angeles", "USA", 34.0522, -118.2437, -7),
+                LocationCoordinates("London", "UK", 51.5074, -0.1278, 1),
+                LocationCoordinates("Sydney", "Australia", -33.8688, 151.2093, 10),
+                LocationCoordinates("Toronto", "Canada", 43.6532, -79.3832, -4),
+                LocationCoordinates("Cape Town", "South Africa", -33.9249, 18.4241, 2),
+                LocationCoordinates("São Paulo", "Brazil", -23.5505, -46.6333, -3)
+            )
+            for (loc in defaultLocs) {
+                locationDao.insertLocation(loc)
+            }
+        }
+        if (campusDao.getCount() == 0) {
+            val defaultCampuses = listOf(
+                ChurchCampus(
+                    name = "Grace Covenant - Central Sanctuary",
+                    address = "500 Zion Way, City Center",
+                    coordinates = "31.7719° N, 35.2170° E",
+                    phone = "(555) 123-4567",
+                    studyTime = "Sabbath Study: 10:00 AM",
+                    worshipTime = "Sabbath Worship: 11:30 AM",
+                    details = "Our main worship home featuring historical scroll archives and a spacious fellowship courtyard."
+                ),
+                ChurchCampus(
+                    name = "Grace Covenant - North Ridge Chapel",
+                    address = "12 Mount Hermon Road, Highland",
+                    coordinates = "32.9642° N, 35.6983° E",
+                    phone = "(555) 987-6543",
+                    studyTime = "Friday Sunset Ingress: 6:30 PM",
+                    worshipTime = "Sabbath Morning Blessing: 9:00 AM",
+                    details = "A peaceful getaway location embedded in nature gardens, ideal for quiet retreats and sunset prayer."
+                ),
+                ChurchCampus(
+                    name = "Grace Covenant - East Fellowship Cabin",
+                    address = "88 Jordan Crossing, Valley Green",
+                    coordinates = "31.9522° N, 35.9284° E",
+                    phone = "(555) 555-7777",
+                    studyTime = "Sabbath Outdoor Fellowship: 4:30 PM",
+                    worshipTime = "Sunset Fellowship Service: 6:00 PM",
+                    details = "Our rustic valley location hosting riverside baptism studies and communal outdoor potlucks."
+                )
+            )
+            for (campus in defaultCampuses) {
+                campusDao.insertCampus(campus)
             }
         }
     }

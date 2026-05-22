@@ -39,8 +39,22 @@ class ChurchViewModel(private val repository: ChurchRepository) : ViewModel() {
     val holidays: List<BiblicalHoliday> = repository.holidays
     val bibleBooks: List<BibleBook> = repository.bibleBooks
 
+    val locationsList: StateFlow<List<LocationCoordinates>> = repository.allLocations
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val campusesList: StateFlow<List<ChurchCampus>> = repository.allCampuses
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     // Selected state variables
-    private val _selectedLocation = MutableStateFlow(SunsetCalculator.locations[0]) // Defaults to Jerusalem
+    private val _selectedLocation = MutableStateFlow(LocationCoordinates("Jerusalem", "Israel", 31.7683, 35.2137, 3)) // Initial fallback
     val selectedLocation: StateFlow<LocationCoordinates> = _selectedLocation.asStateFlow()
 
     private val _selectedCalendar = MutableStateFlow(CalendarSystem.HILLEL) // Defaults to Hillel Rabbinic
@@ -59,10 +73,78 @@ class ChurchViewModel(private val repository: ChurchRepository) : ViewModel() {
         viewModelScope.launch {
             repository.initializeSeedPrayersIfNeeded()
         }
+        viewModelScope.launch {
+            locationsList.collect { list ->
+                if (list.isNotEmpty()) {
+                    val currentSelected = _selectedLocation.value
+                    val stillExists = list.find { it.cityName == currentSelected.cityName && it.country == currentSelected.country }
+                    if (stillExists != null) {
+                        _selectedLocation.value = stillExists
+                    } else {
+                        _selectedLocation.value = list.first()
+                    }
+                }
+            }
+        }
     }
 
     fun selectLocation(location: LocationCoordinates) {
         _selectedLocation.value = location
+    }
+
+    fun addLocation(cityName: String, country: String, latitude: Double, longitude: Double, timezoneOffsetHours: Int) {
+        viewModelScope.launch {
+            repository.insertLocation(
+                LocationCoordinates(
+                    cityName = cityName.trim(),
+                    country = country.trim(),
+                    latitude = latitude,
+                    longitude = longitude,
+                    timezoneOffsetHours = timezoneOffsetHours
+                )
+            )
+        }
+    }
+
+    fun updateLocation(location: LocationCoordinates) {
+        viewModelScope.launch {
+            repository.updateLocation(location)
+        }
+    }
+
+    fun deleteLocation(location: LocationCoordinates) {
+        viewModelScope.launch {
+            repository.deleteLocation(location)
+            // Handled automatically by collector above
+        }
+    }
+
+    fun addCampus(name: String, address: String, coordinates: String, phone: String, studyTime: String, worshipTime: String, details: String) {
+        viewModelScope.launch {
+            repository.insertCampus(
+                ChurchCampus(
+                    name = name.trim(),
+                    address = address.trim(),
+                    coordinates = coordinates.trim(),
+                    phone = phone.trim(),
+                    studyTime = studyTime.trim(),
+                    worshipTime = worshipTime.trim(),
+                    details = details.trim()
+                )
+            )
+        }
+    }
+
+    fun updateCampus(campus: ChurchCampus) {
+        viewModelScope.launch {
+            repository.updateCampus(campus)
+        }
+    }
+
+    fun deleteCampus(campus: ChurchCampus) {
+        viewModelScope.launch {
+            repository.deleteCampus(campus)
+        }
     }
 
     fun selectCalendar(system: CalendarSystem) {

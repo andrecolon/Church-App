@@ -22,11 +22,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         // 1. Initialize DB components
-        val database = AppDatabase.getDatabase(applicationContext)
+                val database = AppDatabase.getDatabase(applicationContext)
         val repository = ChurchRepository(
             prayerDao = database.prayerDao(),
             eventDao = database.eventDao(),
-            potluckDao = database.potluckDao()
+            potluckDao = database.potluckDao(),
+            locationDao = database.locationDao(),
+            campusDao = database.campusDao()
         )
 
         // 2. Instantiate Church Viewmodel with factory

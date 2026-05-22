@@ -2,13 +2,17 @@ package com.example.utils
 
 import java.util.Calendar
 import kotlin.math.*
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 
+@Entity(tableName = "locations")
 data class LocationCoordinates(
     val cityName: String,
     val country: String,
     val latitude: Double,
     val longitude: Double,
-    val timezoneOffsetHours: Int
+    val timezoneOffsetHours: Int,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0
 )
 
 object SunsetCalculator {
