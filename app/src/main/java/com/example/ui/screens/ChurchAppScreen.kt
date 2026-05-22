@@ -125,7 +125,8 @@ data class NavigationBarItemData(
 @Composable
 fun SabbathTabScreen(viewModel: ChurchViewModel) {
     val location by viewModel.selectedLocation.collectAsStateWithLifecycle()
-    val holidays = viewModel.holidays
+    val selectedCalendar by viewModel.selectedCalendar.collectAsStateWithLifecycle()
+    val dynamicHolidays = remember(selectedCalendar) { getHolidaysForSystem(selectedCalendar, viewModel.holidays) }
     var showLocationSelector by remember { mutableStateOf(false) }
 
     val currentTime = Date()
@@ -288,6 +289,21 @@ fun SabbathTabScreen(viewModel: ChurchViewModel) {
         }
 
         item {
+            CalendarSystemSelector(
+                selectedSystem = selectedCalendar,
+                onSystemSelect = { viewModel.selectCalendar(it) }
+            )
+        }
+
+        item {
+            CalendarInfoCard(selectedSystem = selectedCalendar)
+        }
+
+        item {
+            InteractiveCalendarMonthGrid(selectedSystem = selectedCalendar)
+        }
+
+        item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -327,8 +343,15 @@ fun SabbathTabScreen(viewModel: ChurchViewModel) {
                             )
                         }
                         Spacer(modifier = Modifier.height(4.dp))
+                        
+                        val shavuotHighlight = when (selectedCalendar) {
+                            CalendarSystem.HILLEL -> "Shavuot begins TODAY (May 22, 2026)! This celebrates the Sinai Torah giving and Acts 2 Pentecost Spirit outpouring. Read the Book of Ruth and study the Bible Scroll library!"
+                            CalendarSystem.ZADOK -> "Shavuot is upcoming on Sunday, June 7, 2026 (Month 3, Day 15)! This solar date represents the historic oath covenants in Qumran-Essene records. Study the scrolls in our Bible Library!"
+                            CalendarSystem.CONJUNCTION -> "Shavuot has passed on Monday, May 18, 2026! Computed exactly 50 days from Wave Sheaf after the astronomical dark moon conjunction. Dive into study of astronomical cycles!"
+                        }
+                        
                         Text(
-                            text = "Shavuot begins TODAY (May 22, 2026)! This celebrates the Sinai Torah giving and Acts 2 Pentecost Spirit outpouring. Read the Book of Ruth and study the Bible Scroll library!",
+                            text = shavuotHighlight,
                             fontSize = 11.sp,
                             lineHeight = 15.sp,
                             fontWeight = FontWeight.Medium,
@@ -341,7 +364,7 @@ fun SabbathTabScreen(viewModel: ChurchViewModel) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(vertical = 4.dp)
                 ) {
-                    items(holidays) { holiday ->
+                    items(dynamicHolidays) { holiday ->
                         HolidayCard(holiday = holiday)
                     }
                 }

@@ -44,6 +44,12 @@ enum class BookCategory {
     PSEUDEPIGRAPHA
 }
 
+enum class CalendarSystem {
+    ZADOK,
+    HILLEL,
+    CONJUNCTION
+}
+
 object SeedData {
     val events = listOf(
         CalendarEvent(

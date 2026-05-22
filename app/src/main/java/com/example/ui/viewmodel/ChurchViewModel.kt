@@ -43,6 +43,9 @@ class ChurchViewModel(private val repository: ChurchRepository) : ViewModel() {
     private val _selectedLocation = MutableStateFlow(SunsetCalculator.locations[0]) // Defaults to Jerusalem
     val selectedLocation: StateFlow<LocationCoordinates> = _selectedLocation.asStateFlow()
 
+    private val _selectedCalendar = MutableStateFlow(CalendarSystem.HILLEL) // Defaults to Hillel Rabbinic
+    val selectedCalendar: StateFlow<CalendarSystem> = _selectedCalendar.asStateFlow()
+
     private val _searchQueryBible = MutableStateFlow("")
     val searchQueryBible: StateFlow<String> = _searchQueryBible.asStateFlow()
 
@@ -60,6 +63,10 @@ class ChurchViewModel(private val repository: ChurchRepository) : ViewModel() {
 
     fun selectLocation(location: LocationCoordinates) {
         _selectedLocation.value = location
+    }
+
+    fun selectCalendar(system: CalendarSystem) {
+        _selectedCalendar.value = system
     }
 
     fun updateSearchQueryBible(query: String) {
