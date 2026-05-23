@@ -1,5 +1,5 @@
 {
-  "name": "Grace Covenant",
+  "name": "T.O.B.Y.",
   "description": "Church app with Sermon Archives, Event Calendar, Prayer Submission, Friday/Saturday Sunset Tracking, Biblical Holiday Timelines, and a complete Bible Library includingApocrypha & DSS.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

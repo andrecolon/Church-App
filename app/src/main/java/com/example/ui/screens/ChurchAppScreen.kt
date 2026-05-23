@@ -203,7 +203,7 @@ fun SabbathTabScreen(viewModel: ChurchViewModel) {
             ) {
                 Column {
                     Text(
-                        text = "Grace Covenant",
+                        text = "T.O.B.Y.",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.primary,
@@ -1303,6 +1303,7 @@ fun BibleTabScreen(viewModel: ChurchViewModel) {
     var contrastMode by remember { mutableStateOf(0) } // 0: Sepia Light, 1: Pure White, 2: Cyber Dark
 
     var showBookSelectorDropdown by remember { mutableStateOf(false) }
+    var isReadingAreaExpanded by remember { mutableStateOf(false) }
 
     val readBgColor = when (contrastMode) {
         0 -> Color(0xFFF3EFE0)
@@ -1323,134 +1324,174 @@ fun BibleTabScreen(viewModel: ChurchViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text(
-            text = "Biblical Library",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.primary,
-            fontFamily = FontFamily.Serif
-        )
-
-        // Scrollable horizontal category filters supporting Pseudepigrapha
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            val categorizers = listOf(
-                Pair(BookCategory.OLD_TESTAMENT, "Tanakh (OT)"),
-                Pair(BookCategory.NEW_TESTAMENT, "Apostles (NT)"),
-                Pair(BookCategory.APOCRYPHA, "Apocrypha"),
-                Pair(BookCategory.DEAD_SEA_SCROLLS, "Dead Sea Scrolls"),
-                Pair(BookCategory.PSEUDEPIGRAPHA, "Pseudepigrapha")
+        if (!isReadingAreaExpanded) {
+            Text(
+                text = "Biblical Library",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary,
+                fontFamily = FontFamily.Serif
             )
 
-            items(categorizers) { cat ->
-                val isSelected = activeCategoryFilter == cat.first
-                Button(
-                    onClick = { activeCategoryFilter = cat.first },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = if (isSelected) SoftIvoryText else MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = cat.second,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
+            // Scrollable horizontal category filters supporting Pseudepigrapha
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                val categorizers = listOf(
+                    Pair(BookCategory.OLD_TESTAMENT, "Tanakh (OT)"),
+                    Pair(BookCategory.NEW_TESTAMENT, "Apostles (NT)"),
+                    Pair(BookCategory.APOCRYPHA, "Apocrypha"),
+                    Pair(BookCategory.DEAD_SEA_SCROLLS, "Dead Sea Scrolls"),
+                    Pair(BookCategory.PSEUDEPIGRAPHA, "Pseudepigrapha")
+                )
 
-        // Current Resource selectors
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("book_selector_card"),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                items(categorizers) { cat ->
+                    val isSelected = activeCategoryFilter == cat.first
+                    Button(
+                        onClick = { activeCategoryFilter = cat.first },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isSelected) SoftIvoryText else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
+                    ) {
                         Text(
-                            text = "CURRENT RESOURCE",
-                            fontSize = 8.sp,
-                            color = MaterialTheme.colorScheme.secondary,
+                            text = cat.second,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Text(
-                            text = selectedBook.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontFamily = FontFamily.Serif,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    Button(
-                        onClick = { showBookSelectorDropdown = !showBookSelectorDropdown },
-                        elevation = ButtonDefaults.buttonElevation(1.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.testTag("change_book_button")
-                    ) {
-                        Text("Change", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "Dropdown")
                     }
                 }
+            }
 
-                AnimatedVisibility(visible = showBookSelectorDropdown) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+            // Current Resource selectors
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("book_selector_card"),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Divider()
-                        Text(
-                            text = "Select book from category criteria:",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "CURRENT RESOURCE",
+                                fontSize = 8.sp,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = selectedBook.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontFamily = FontFamily.Serif,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
 
-                        val matchingBooksOfActiveCategory = books.filter { it.category == activeCategoryFilter }
-                        
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
+                        Button(
+                            onClick = { showBookSelectorDropdown = !showBookSelectorDropdown },
+                            elevation = ButtonDefaults.buttonElevation(1.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.testTag("change_book_button")
                         ) {
-                            items(matchingBooksOfActiveCategory) { book ->
-                                val isCur = book.id == selectedBook.id
-                                InputChip(
-                                    selected = isCur,
-                                    onClick = {
-                                        viewModel.selectBook(book)
-                                        showBookSelectorDropdown = false
-                                    },
-                                    label = { Text(book.name, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                                    colors = InputChipDefaults.inputChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    ),
-                                    modifier = Modifier.testTag("book_chip_${book.id}")
-                                )
+                            Text("Change", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "Dropdown")
+                        }
+                    }
+
+                    AnimatedVisibility(visible = showBookSelectorDropdown) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Divider()
+                            Text(
+                                text = "Select book from category criteria:",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+
+                            val matchingBooksOfActiveCategory = books.filter { it.category == activeCategoryFilter }
+                            
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                items(matchingBooksOfActiveCategory) { book ->
+                                    val isCur = book.id == selectedBook.id
+                                    InputChip(
+                                        selected = isCur,
+                                        onClick = {
+                                            viewModel.selectBook(book)
+                                            showBookSelectorDropdown = false
+                                        },
+                                        label = { Text(book.name, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                                        colors = InputChipDefaults.inputChipColors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        ),
+                                        modifier = Modifier.testTag("book_chip_${book.id}")
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        ExpandableIntroCard(introText = selectedBook.introduction)
+            ExpandableIntroCard(introText = selectedBook.introduction)
+        } else {
+            // Expanded Focus Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = selectedBook.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = FontFamily.Serif
+                    )
+                    Text(
+                        text = "History & Covenant Focus Reader",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+                
+                Row(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                        .clickable { isReadingAreaExpanded = false }
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Close, "Exit Focus", tint = SoftIvoryText, modifier = Modifier.size(12.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Exit Focus", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SoftIvoryText)
+                }
+            }
+        }
 
         // Adjusters
         Row(
@@ -1521,6 +1562,47 @@ fun BibleTabScreen(viewModel: ChurchViewModel) {
                         Text(ch.label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+        }
+
+        // Reading Area Workspace Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val curCh = selectedBook.chapters.getOrNull(selectedChapterIndex)
+            Text(
+                text = "${selectedBook.name} — ${curCh?.label ?: "Reading"}",
+                style = MaterialTheme.typography.titleSmall,
+                fontFamily = FontFamily.Serif,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Row(
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .clickable { isReadingAreaExpanded = !isReadingAreaExpanded }
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                    .testTag("toggle_reading_area_button"),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (isReadingAreaExpanded) Icons.Default.Close else Icons.Default.KeyboardArrowUp,
+                    contentDescription = if (isReadingAreaExpanded) "Minimize Reading Area" else "Expand Reading Area",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (isReadingAreaExpanded) "Compact" else "Focus Mode",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
 
@@ -1688,7 +1770,7 @@ fun LocationsMapTabScreen(viewModel: ChurchViewModel) {
                         fontFamily = FontFamily.Serif
                     )
                     Text(
-                        text = "Detailed directions and blueprints of Grace Covenant worship campuses:",
+                        text = "Detailed directions and blueprints of T.O.B.Y. worship campuses:",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                     )
@@ -2113,7 +2195,7 @@ fun LocationsMapTabScreen(viewModel: ChurchViewModel) {
                                     val finalCoords = if (campusCoordinates.trim().isBlank()) "0.0° N, 0.0° E" else campusCoordinates.trim()
                                     val finalStudy = if (campusStudyTime.trim().isBlank()) "Sabbath Study: 10:00 AM" else campusStudyTime.trim()
                                     val finalWorship = if (campusWorshipTime.trim().isBlank()) "Sabbath Worship: 11:30 AM" else campusWorshipTime.trim()
-                                    val finalDetails = if (campusDetails.trim().isBlank()) "Grace Covenant Assembly of Holy Covenants" else campusDetails.trim()
+                                    val finalDetails = if (campusDetails.trim().isBlank()) "T.O.B.Y. Assembly of Holy Covenants" else campusDetails.trim()
                                     
                                     val target = editTargetCampus
                                     if (target != null) {
