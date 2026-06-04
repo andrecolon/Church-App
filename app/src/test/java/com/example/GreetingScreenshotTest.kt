@@ -1,5 +1,7 @@
 package com.example
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import com.example.ui.theme.MyApplicationTheme
@@ -28,7 +30,7 @@ class GreetingScreenshotTest {
           color = androidx.compose.material3.MaterialTheme.colorScheme.background
         ) {
           androidx.compose.material3.Text(
-            text = "Grace Covenant Church App Portal",
+            text = "T.O.B.Y App Portal",
             style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
             color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,

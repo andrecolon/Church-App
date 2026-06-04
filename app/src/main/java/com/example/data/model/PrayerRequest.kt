@@ -8,7 +8,7 @@ data class PrayerRequest(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val title: String,
     val content: String,
-    val category: String, // "Healing", "Faith", "Guidance", "Family", "General"
+    val category: String, // "Healing", "Faith", "Guidance", "Family", "General", "Unspoken"
     val requester: String, // User's name or "Anonymous"
     val timestamp: Long = System.currentTimeMillis(),
     val prayerCount: Int = 0,
