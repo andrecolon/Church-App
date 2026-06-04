@@ -192,11 +192,6 @@ class ChurchRepository(
                 LocationCoordinates("Jerusalem", "Israel", 31.7683, 35.2137, 3),
                 LocationCoordinates("New York", "USA", 40.7128, -74.0060, -4),
                 LocationCoordinates("Los Angeles", "USA", 34.0522, -118.2437, -7),
-                LocationCoordinates("London", "UK", 51.5074, -0.1278, 1),
-                LocationCoordinates("Sydney", "Australia", -33.8688, 151.2093, 10),
-                LocationCoordinates("Toronto", "Canada", 43.6532, -79.3832, -4),
-                LocationCoordinates("Cape Town", "South Africa", -33.9249, 18.4241, 2),
-                LocationCoordinates("São Paulo", "Brazil", -23.5505, -46.6333, -3)
             )
             for (loc in defaultLocs) {
                 locationDao.insertLocation(loc)
@@ -205,8 +200,8 @@ class ChurchRepository(
         if (campusDao.getCount() == 0) {
             val defaultCampuses = listOf(
                 ChurchCampus(
-                    name = "Grace Covenant - Central Sanctuary",
-                    address = "500 Zion Way, City Center",
+                    name = "Abraham",
+                    address = "Pheasant Dr, Tehachapi, California 93561",
                     coordinates = "31.7719° N, 35.2170° E",
                     phone = "(555) 123-4567",
                     studyTime = "Sabbath Study: 10:00 AM",
@@ -214,22 +209,22 @@ class ChurchRepository(
                     details = "Our main worship home featuring historical scroll archives and a spacious fellowship courtyard."
                 ),
                 ChurchCampus(
-                    name = "Grace Covenant - North Ridge Chapel",
-                    address = "12 Mount Hermon Road, Highland",
-                    coordinates = "32.9642° N, 35.6983° E",
-                    phone = "(555) 987-6543",
-                    studyTime = "Friday Sunset Ingress: 6:30 PM",
-                    worshipTime = "Sabbath Morning Blessing: 9:00 AM",
+                    name = "Cortez",
+                    address = "718 Orchid Dr d, Bakersfield, CA 93308",
+                    coordinates = "35.4314483° N, 119.036134",
+                    phone = "(661) 932-8482",
+                    studyTime = "Sabbath Outdoor Fellowship: 12:30 PM",
+                    worshipTime = "Sabbath Fellowship Service: 2:00 PM",
                     details = "A peaceful getaway location embedded in nature gardens, ideal for quiet retreats and sunset prayer."
                 ),
                 ChurchCampus(
-                    name = "Grace Covenant - East Fellowship Cabin",
-                    address = "88 Jordan Crossing, Valley Green",
-                    coordinates = "31.9522° N, 35.9284° E",
-                    phone = "(555) 555-7777",
-                    studyTime = "Sabbath Outdoor Fellowship: 4:30 PM",
-                    worshipTime = "Sunset Fellowship Service: 6:00 PM",
-                    details = "Our rustic valley location hosting riverside baptism studies and communal outdoor potlucks."
+                    name = "House Of Vidal",
+                    address = "24320 Serra Pl, Tehachapi, California 93561",
+                    coordinates = "35.1585° N, 118.6366° W",
+                    phone = "(213) 215-6244",
+                    studyTime = "Sabbath Outdoor Fellowship: 12:30 PM",
+                    worshipTime = "Sabbath Fellowship Service: 2:00 PM",
+                    details = "A series of homes, We are the last home"
                 )
             )
             for (campus in defaultCampuses) {
