@@ -1700,6 +1700,7 @@ fun ExpandableIntroCard(introText: String) {
 @Composable
 fun LocationsMapTabScreen(viewModel: ChurchViewModel) {
     val campuses by viewModel.campusesList.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     var selectedCampusIndex by remember { mutableStateOf(0) }
     val safeSelectedCampusIndex = if (campuses.isEmpty()) -1 else selectedCampusIndex.coerceIn(0, campuses.size - 1)
@@ -1875,18 +1876,47 @@ fun LocationsMapTabScreen(viewModel: ChurchViewModel) {
                             }
                         }
                         
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.clickable {
+                                try {
+                                    val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(activeCampus.address)}")
+                                    val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                                    context.startActivity(mapIntent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Map application not found", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        ) {
                             Icon(Icons.Default.LocationOn, "Address", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
                             Text(
                                 text = "${activeCampus.address} | Coordinates: ${activeCampus.coordinates}",
                                 fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
                             )
                         }
 
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.clickable {
+                                try {
+                                    val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${activeCampus.phone}"))
+                                    context.startActivity(dialIntent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Dialer not found", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        ) {
                             Icon(Icons.Default.Phone, "Phone", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
-                            Text(text = activeCampus.phone, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                            Text(
+                                text = activeCampus.phone,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -2409,8 +2439,35 @@ fun MinistryDirectorySubScreen() {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(text = "Email: $fakeEmail", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
-                            Text(text = "Admin Direct: $fakePhone", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                            Text(
+                                text = "Email: $fakeEmail",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.clickable {
+                                    try {
+                                        val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                            data = Uri.parse("mailto:$fakeEmail")
+                                        }
+                                        context.startActivity(emailIntent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Email client not found", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                            Text(
+                                text = "Admin Direct: $fakePhone",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                modifier = Modifier.clickable {
+                                    try {
+                                        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$fakePhone"))
+                                        context.startActivity(dialIntent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Dialer not found", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
                         }
 
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -2431,10 +2488,10 @@ fun MinistryDirectorySubScreen() {
                             IconButton(
                                 onClick = {
                                     try {
-                                        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:+15551234567"))
+                                        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$fakePhone"))
                                         context.startActivity(dialIntent)
                                     } catch(e: Exception) {
-                                        Toast.makeText(context, "Initiating direct dial to $fakePhone", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Dialer not found", Toast.LENGTH_SHORT).show()
                                     }
                                 },
                                 modifier = Modifier.size(32.dp).testTag("call_$slug")
