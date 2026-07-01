@@ -17,15 +17,10 @@ data class LocationCoordinates(
 
 object SunsetCalculator {
     val locations = listOf(
-        LocationCoordinates("Jerusalem", "Israel", 31.7683, 35.2137, 3),
+        LocationCoordinates("Yerushalayim", "Israel", 31.7683, 35.2137, 3),
         LocationCoordinates("New York", "USA", 40.7128, -74.0060, -4),
         LocationCoordinates("Los Angeles", "USA", 34.0522, -118.2437, -7),
-        LocationCoordinates("London", "UK", 51.5074, -0.1278, 1),
-        LocationCoordinates("Sydney", "Australia", -33.8688, 151.2093, 10),
-        LocationCoordinates("Toronto", "Canada", 43.6532, -79.3832, -4),
-        LocationCoordinates("Cape Town", "South Africa", -33.9249, 18.4241, 2),
-        LocationCoordinates("São Paulo", "Brazil", -23.5505, -46.6333, -3)
-    )
+ )
 
     fun getSabbathDays(calendar: Calendar = Calendar.getInstance()): Pair<Calendar, Calendar> {
         val friday = calendar.clone() as Calendar

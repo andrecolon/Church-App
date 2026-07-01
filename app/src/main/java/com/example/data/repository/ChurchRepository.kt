@@ -189,7 +189,7 @@ class ChurchRepository(
         }
         if (locationDao.getCount() == 0) {
             val defaultLocs = listOf(
-                LocationCoordinates("Jerusalem", "Israel", 31.7683, 35.2137, 3),
+                LocationCoordinates("Yerushalayim", "Israel", 31.7683, 35.2137, 3),
                 LocationCoordinates("New York", "USA", 40.7128, -74.0060, -4),
                 LocationCoordinates("Los Angeles", "USA", 34.0522, -118.2437, -7),
             )

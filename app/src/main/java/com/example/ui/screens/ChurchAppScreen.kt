@@ -2701,7 +2701,7 @@ fun SubmitPrayerDialog(
     var name by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("General") }
 
-    val categories = listOf("Healing", "Guidance", "Family", "Faith", "General")
+    val categories = listOf("Healing", "Guidance", "Family", "Faith", "General", "Unspoken")
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
